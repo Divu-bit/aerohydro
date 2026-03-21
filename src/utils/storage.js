@@ -32,23 +32,34 @@ export async function createOrUpdateUser(profile, log = null, id = null) {
   return data;
 }
 
+export function getLocalDateString(d = new Date()) {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+export function getLocalToday() {
+  return getLocalDateString(new Date());
+}
+
 export async function fetchUserAndLog(id) {
   const res = await fetch(`${API_URL}/${id}`);
   if (!res.ok) throw new Error('Failed to fetch user');
   const user = await res.json();
   
-  // Find today's log or return null
-  const today = new Date().toISOString().slice(0, 10);
+  // Find today's log or return null using local timezone
+  const today = getLocalToday();
   const log = user.logs?.find(l => l.date === today) || null;
   
   return { profile: user, log };
 }
 
-export async function logWaterAPI(id, date, logged, schedule) {
+export async function logWaterAPI(id, date, total, entries) {
   const res = await fetch(`${API_URL}/${id}/logWater`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ date, logged, schedule })
+    body: JSON.stringify({ date, total, entries })
   });
   if (!res.ok) throw new Error('Failed to log water');
   return res.json();

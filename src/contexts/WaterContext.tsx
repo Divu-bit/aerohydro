@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
 import { WaterSettings, WaterEntry, DayRecord, WaterState } from '@/types/water';
-import { getUserId, fetchUserAndLog, createOrUpdateUser, logWaterAPI, clearAllData } from '@/utils/storage';
+import { getUserId, fetchUserAndLog, createOrUpdateUser, logWaterAPI, clearAllData, getLocalToday, getLocalDateString } from '@/utils/storage';
 
 const DEFAULT_SETTINGS: WaterSettings = {
   dailyGoal: 3000,
@@ -14,7 +14,7 @@ const DEFAULT_SETTINGS: WaterSettings = {
 };
 
 function getToday(): string {
-  return new Date().toISOString().slice(0, 10);
+  return getLocalToday();
 }
 
 interface WaterContextType {
@@ -172,7 +172,7 @@ export function WaterProvider({ children }: { children: React.ReactNode }) {
     for (let i = 6; i >= 0; i--) {
       const d = new Date(now);
       d.setDate(d.getDate() - i);
-      const key = d.toISOString().slice(0, 10);
+      const key = getLocalDateString(d);
       const shortDay = d.toLocaleDateString('en', { weekday: 'short' });
       days.push({
         day: shortDay,
@@ -190,7 +190,7 @@ export function WaterProvider({ children }: { children: React.ReactNode }) {
     for (let i = 0; i < 365; i++) {
       const d = new Date(now);
       d.setDate(d.getDate() - i);
-      const key = d.toISOString().slice(0, 10);
+      const key = getLocalDateString(d);
       const rec = history[key];
       if (rec && rec.total >= settings.dailyGoal) {
         count++;

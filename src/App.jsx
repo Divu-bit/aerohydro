@@ -14,9 +14,18 @@ import { getUserId } from "./utils/storage";
 const queryClient = new QueryClient();
 
 const AppLayout = () => {
+  const { loading } = useWater();
   const hasProfile = !!getUserId();
   const location = useLocation();
   const isOnboarding = location.pathname === "/onboarding";
+
+  if (loading && hasProfile && !isOnboarding) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="w-8 h-8 rounded-full border-4 border-primary border-t-transparent animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col min-h-screen">
