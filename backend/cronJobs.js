@@ -8,6 +8,13 @@ const TWILIO_SID = process.env.TWILIO_ACCOUNT_SID;
 const TWILIO_AUTH = process.env.TWILIO_AUTH_TOKEN;
 const TWILIO_PHONE = process.env.TWILIO_PHONE_NUMBER;
 
+// Helper to get today's date in IST (+5:30) since the frontend runs in IST
+function getLocalToday() {
+  const d = new Date();
+  d.setMinutes(d.getMinutes() + 330);
+  return d.toISOString().slice(0, 10);
+}
+
 // Initialize clients
 let bot = null;
 if (TELEGRAM_TOKEN) {
@@ -52,7 +59,7 @@ if (TELEGRAM_TOKEN) {
         return;
       }
 
-      const today = new Date().toISOString().slice(0, 10);
+      const today = getLocalToday();
       const logIndex = user.logs.findIndex(l => l.date === today);
 
       if (logIndex >= 0) {
@@ -124,7 +131,7 @@ export function startCronJobs() {
         notificationPreference: { $in: ['telegram', 'twilio'] }
       });
       
-      const today = new Date().toISOString().slice(0, 10);
+      const today = getLocalToday();
       const now = new Date();
 
       for (const user of users) {

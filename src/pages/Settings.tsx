@@ -5,7 +5,7 @@ import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Trash2, Save } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import {
   AlertDialog,
@@ -25,6 +25,12 @@ export default function Settings() {
   const [intervalInput, setIntervalInput] = useState(String(settings.reminderInterval));
   const [cupInput, setCupInput] = useState('');
   const [phoneInput, setPhoneInput] = useState(settings.phoneNumber || '');
+
+  useEffect(() => {
+    setGoalInput(String(settings.dailyGoal));
+    setIntervalInput(String(settings.reminderInterval));
+    setPhoneInput(settings.phoneNumber || '');
+  }, [settings.dailyGoal, settings.reminderInterval, settings.phoneNumber]);
 
   const handleGoalBlur = () => {
     const val = parseInt(goalInput, 10);
