@@ -1,259 +1,266 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import {
-  Droplets, User, Ruler, Activity, Calendar, Clock, ChevronRight, ChevronLeft, Sparkles,
-} from 'lucide-react';
-import {
-  calculateBMI, calculateDailyGoal, generateSchedule, lbsToKg, ftInToCm,
-} from '../utils/hydration';
-import { saveProfile, saveDailyLog } from '../utils/storage';
-import { requestNotificationPermission, scheduleNotifications } from '../utils/notifications';
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import OnboardingLayout from "@/components/OnboardingLayout";
+import { User, Link2, Activity, Clock, Sparkles, Droplets } from "lucide-react";
+import { createOrUpdateUser } from "@/utils/storage";
 
-const STEPS = ['Basics', 'Body', 'Lifestyle', 'Schedule', 'Summary'];
+const TOTAL_STEPS = 5;
 
-export default function Onboarding() {
+const Onboarding = () => {
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
-  const [unit, setUnit] = useState('metric'); // metric | imperial
-  const [form, setForm] = useState({
-    name: '',
-    age: '',
-    weight: '',
-    height: '',
-    heightFt: '',
-    heightIn: '',
-    activityLevel: 'moderate',
-    wakeTime: '07:00',
-    sleepTime: '23:00',
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [data, setData] = useState({
+    name: "",
+    age: "25",
+    unit: "metric",
+    weight: "70",
+    height: "175",
+    activity: "moderate",
+    wakeUp: "07:00",
+    sleep: "23:00",
   });
 
-  const set = (key) => (e) => setForm(f => ({ ...f, [key]: e.target.value }));
+  const next = () => setStep((s) => Math.min(s + 1, TOTAL_STEPS - 1));
+  const back = () => setStep((s) => Math.max(s - 1, 0));
 
-  /* ── Derived values ─────────────────────────── */
-  const weightKg = unit === 'metric' ? Number(form.weight) : lbsToKg(Number(form.weight));
-  const heightCm = unit === 'metric'
-    ? Number(form.height)
-    : ftInToCm(Number(form.heightFt), Number(form.heightIn));
-  const bmi = calculateBMI(weightKg, heightCm);
-  const dailyGoal = calculateDailyGoal(weightKg, bmi, form.activityLevel);
-  const schedule = generateSchedule(form.wakeTime, form.sleepTime, dailyGoal);
+  const weightNum = parseFloat(data.weight) || 0;
+  const heightNum = parseFloat(data.height) || 0;
+  const heightM = data.unit === "metric" ? heightNum / 100 : heightNum * 0.3048;
+  const weightKg = data.unit === "metric" ? weightNum : weightNum * 0.4536;
+  const bmi = heightM > 0 ? (weightKg / (heightM * heightM)).toFixed(1) : "0";
 
-  const canNext = () => {
-    if (step === 0) return form.name.trim().length > 0 && form.age > 0;
-    if (step === 1) {
-      if (unit === 'metric') return form.weight > 0 && form.height > 0;
-      return form.weight > 0 && form.heightFt > 0;
-    }
-    return true;
+  const activityMultiplier = {
+    low: 30,
+    moderate: 33,
+    high: 37,
+    very_high: 40,
   };
+  const dailyGoal = Math.round(weightKg * (activityMultiplier[data.activity] || 33));
+
+  const inputClasses =
+    "w-full rounded-md border border-border bg-card px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary transition-shadow";
+  const labelClasses = "block text-xs font-medium uppercase tracking-wider text-muted-foreground mb-1.5";
+
+  const activities = [
+    { key: "low", label: "Low", desc: "Mostly sedentary", emoji: "🧘" },
+    { key: "moderate", label: "Moderate", desc: "Light exercise", emoji: "🏃" },
+    { key: "high", label: "High", desc: "Regular workouts", emoji: "🏋️" },
+    { key: "very_high", label: "Very High", desc: "Intense training", emoji: "🤸" },
+  ];
 
   const handleFinish = async () => {
-    const profile = {
-      name: form.name,
-      age: Number(form.age),
+    setIsSubmitting(true);
+    
+    // Create new profile object mapped to defaults plus user input
+    const newProfile = {
+      name: data.name || "AeroHydrator",
+      age: parseInt(data.age, 10),
       weightKg,
-      heightCm,
-      bmi,
-      activityLevel: form.activityLevel,
-      wakeTime: form.wakeTime,
-      sleepTime: form.sleepTime,
       dailyGoal,
-      unit,
+      reminderInterval: 60, // Default 60 mins
+      cupSizes: [100, 250, 500],
+      unit: "ml",
+      notificationsEnabled: false
     };
-    saveProfile(profile);
-    saveDailyLog({ logged: 0, schedule, date: new Date().toISOString().slice(0, 10) });
-    await requestNotificationPermission();
-    scheduleNotifications(schedule);
-    navigate('/dashboard');
-  };
 
-  /* ── Step renderers ─────────────────────────── */
-  const renderStep = () => {
-    switch (step) {
-      case 0: return (
-        <div className="flex flex-col gap-5 animate-fade-in-up">
-          <h2 className="text-2xl font-bold flex items-center gap-2">
-            <User size={24} className="text-sky-400" /> Welcome
-          </h2>
-          <p className="text-white/50 text-sm">Let's personalize your hydration plan.</p>
-          <div>
-            <label className="text-xs text-white/40 uppercase tracking-wider mb-1 block">Your Name</label>
-            <input className="input-glass" placeholder="e.g. Alex" value={form.name} onChange={set('name')} />
-          </div>
-          <div>
-            <label className="text-xs text-white/40 uppercase tracking-wider mb-1 block">Age</label>
-            <input className="input-glass" type="number" min="1" max="120" placeholder="25" value={form.age} onChange={set('age')} />
-          </div>
-        </div>
-      );
+    // Make an empty list of entries to kick off their first day
+    const initialLog = {
+      entries: [],
+      date: new Date().toISOString().slice(0, 10),
+      logged: 0
+    };
 
-      case 1: return (
-        <div className="flex flex-col gap-5 animate-fade-in-up">
-          <h2 className="text-2xl font-bold flex items-center gap-2">
-            <Ruler size={24} className="text-sky-400" /> Body Metrics
-          </h2>
-          <div className="flex gap-2">
-            {['metric', 'imperial'].map(u => (
-              <button key={u} onClick={() => setUnit(u)}
-                className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all duration-300 ${
-                  unit === u ? 'bg-sky-500/30 text-sky-300 border border-sky-500/40' : 'btn-glass'
-                }`}
-              >{u === 'metric' ? 'kg / cm' : 'lbs / ft'}</button>
-            ))}
-          </div>
-          <div>
-            <label className="text-xs text-white/40 uppercase tracking-wider mb-1 block">
-              Weight ({unit === 'metric' ? 'kg' : 'lbs'})
-            </label>
-            <input className="input-glass" type="number" min="1" placeholder={unit === 'metric' ? '70' : '154'}
-              value={form.weight} onChange={set('weight')} />
-          </div>
-          {unit === 'metric' ? (
-            <div>
-              <label className="text-xs text-white/40 uppercase tracking-wider mb-1 block">Height (cm)</label>
-              <input className="input-glass" type="number" min="1" placeholder="175" value={form.height} onChange={set('height')} />
-            </div>
-          ) : (
-            <div className="flex gap-3">
-              <div className="flex-1">
-                <label className="text-xs text-white/40 uppercase tracking-wider mb-1 block">Feet</label>
-                <input className="input-glass" type="number" min="1" placeholder="5" value={form.heightFt} onChange={set('heightFt')} />
-              </div>
-              <div className="flex-1">
-                <label className="text-xs text-white/40 uppercase tracking-wider mb-1 block">Inches</label>
-                <input className="input-glass" type="number" min="0" max="11" placeholder="9" value={form.heightIn} onChange={set('heightIn')} />
-              </div>
-            </div>
-          )}
-          {bmi > 0 && (
-            <div className="glass p-3 rounded-xl text-center text-sm">
-              Your BMI: <span className="text-sky-300 font-semibold text-lg">{bmi}</span>
-            </div>
-          )}
-        </div>
-      );
-
-      case 2: return (
-        <div className="flex flex-col gap-5 animate-fade-in-up">
-          <h2 className="text-2xl font-bold flex items-center gap-2">
-            <Activity size={24} className="text-sky-400" /> Activity Level
-          </h2>
-          <div className="grid grid-cols-2 gap-3">
-            {[
-              { v: 'low', emoji: '🧘', label: 'Low', desc: 'Mostly sedentary' },
-              { v: 'moderate', emoji: '🚶', label: 'Moderate', desc: 'Light exercise' },
-              { v: 'high', emoji: '🏃', label: 'High', desc: 'Regular workouts' },
-              { v: 'very-high', emoji: '🏋️', label: 'Very High', desc: 'Intense training' },
-            ].map(({ v, emoji, label, desc }) => (
-              <button key={v} onClick={() => setForm(f => ({ ...f, activityLevel: v }))}
-                className={`p-4 rounded-xl text-left transition-all duration-300 ${
-                  form.activityLevel === v
-                    ? 'bg-sky-500/25 border border-sky-500/40 shadow-lg shadow-sky-500/10'
-                    : 'glass hover:bg-white/8'
-                }`}
-              >
-                <span className="text-2xl">{emoji}</span>
-                <p className="font-semibold mt-1 text-sm">{label}</p>
-                <p className="text-xs text-white/40">{desc}</p>
-              </button>
-            ))}
-          </div>
-        </div>
-      );
-
-      case 3: return (
-        <div className="flex flex-col gap-5 animate-fade-in-up">
-          <h2 className="text-2xl font-bold flex items-center gap-2">
-            <Clock size={24} className="text-sky-400" /> Your Schedule
-          </h2>
-          <p className="text-white/50 text-sm">We'll space your hydration milestones evenly.</p>
-          <div className="flex gap-4">
-            <div className="flex-1">
-              <label className="text-xs text-white/40 uppercase tracking-wider mb-1 block">Wake Up</label>
-              <input className="input-glass" type="time" value={form.wakeTime} onChange={set('wakeTime')} />
-            </div>
-            <div className="flex-1">
-              <label className="text-xs text-white/40 uppercase tracking-wider mb-1 block">Sleep</label>
-              <input className="input-glass" type="time" value={form.sleepTime} onChange={set('sleepTime')} />
-            </div>
-          </div>
-        </div>
-      );
-
-      case 4: return (
-        <div className="flex flex-col gap-5 animate-fade-in-up">
-          <h2 className="text-2xl font-bold flex items-center gap-2">
-            <Sparkles size={24} className="text-sky-400" /> Your Plan
-          </h2>
-          <div className="glass p-5 rounded-xl space-y-3">
-            <div className="flex justify-between items-center text-sm">
-              <span className="text-white/50">BMI</span>
-              <span className="font-semibold text-sky-300">{bmi}</span>
-            </div>
-            <div className="flex justify-between items-center text-sm">
-              <span className="text-white/50">Daily Goal</span>
-              <span className="font-semibold text-sky-300">{dailyGoal} ml</span>
-            </div>
-            <div className="flex justify-between items-center text-sm">
-              <span className="text-white/50">Milestones</span>
-              <span className="font-semibold text-sky-300">{schedule.length} sips</span>
-            </div>
-            <hr className="border-white/10" />
-            <div className="max-h-40 overflow-y-auto space-y-1">
-              {schedule.map((s, i) => (
-                <div key={i} className="flex justify-between text-xs text-white/60 py-1">
-                  <span>🕐 {s.time}</span>
-                  <span>{s.amountMl} ml</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      );
+    try {
+      await createOrUpdateUser(newProfile, initialLog, null);
+      if ('Notification' in window) {
+        // Just request it here so it pops up contextually
+        Notification.requestPermission();
+      }
+      // Force page reload so WaterContext picks up the new userId
+      window.location.href = '/dashboard';
+    } catch (e) {
+      console.error(e);
+      setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="flex items-center justify-center w-full h-full">
-      <div className="glass-strong p-8 w-full max-w-md animate-fade-in-up" style={{ borderRadius: '24px' }}>
-        {/* Progress dots */}
-        <div className="flex items-center justify-center gap-2 mb-8">
-          {STEPS.map((s, i) => (
-            <div key={s} className="flex items-center gap-2">
-              <div className={`w-2.5 h-2.5 rounded-full transition-all duration-500 ${
-                i === step ? 'bg-sky-400 scale-125 shadow-lg shadow-sky-400/50' :
-                i < step ? 'bg-sky-600' : 'bg-white/15'
-              }`} />
-              {i < STEPS.length - 1 && (
-                <div className={`w-6 h-0.5 rounded transition-all duration-500 ${i < step ? 'bg-sky-600' : 'bg-white/10'}`} />
-              )}
+    <>
+      {step === 0 && (
+        <OnboardingLayout
+          step={0}
+          totalSteps={TOTAL_STEPS}
+          title="Welcome"
+          icon={<User className="h-6 w-6" />}
+          subtitle="Let's personalize your hydration plan."
+          onNext={next}
+        >
+          <div className="space-y-5">
+            <div>
+              <label className={labelClasses}>Your Name</label>
+              <input
+                className={inputClasses}
+                placeholder="Alex"
+                value={data.name}
+                onChange={(e) => setData({ ...data, name: e.target.value })}
+              />
             </div>
-          ))}
-        </div>
+            <div>
+              <label className={labelClasses}>Age</label>
+              <input
+                className={`${inputClasses} max-w-[120px]`}
+                type="number"
+                value={data.age}
+                onChange={(e) => setData({ ...data, age: e.target.value })}
+              />
+            </div>
+          </div>
+        </OnboardingLayout>
+      )}
 
-        {/* Step content */}
-        <div className="min-h-[300px]">{renderStep()}</div>
+      {step === 1 && (
+        <OnboardingLayout
+          step={1}
+          totalSteps={TOTAL_STEPS}
+          title="Body Metrics"
+          icon={<Link2 className="h-6 w-6" />}
+          onBack={back}
+          onNext={next}
+        >
+          <div className="space-y-5">
+            <div className="flex rounded-lg border border-border overflow-hidden">
+              {["metric", "imperial"].map((u) => (
+                <button
+                  key={u}
+                  onClick={() => setData({ ...data, unit: u })}
+                  className={`flex-1 py-2.5 text-sm font-medium transition-colors ${
+                    data.unit === u
+                      ? "bg-primary/20 text-primary"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {u === "metric" ? "kg / cm" : "lbs / ft"}
+                </button>
+              ))}
+            </div>
+            <div>
+              <label className={labelClasses}>
+                Weight ({data.unit === "metric" ? "kg" : "lbs"})
+              </label>
+              <input
+                className={inputClasses}
+                type="number"
+                value={data.weight}
+                onChange={(e) => setData({ ...data, weight: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className={labelClasses}>
+                Height ({data.unit === "metric" ? "cm" : "ft"})
+              </label>
+              <input
+                className={inputClasses}
+                type="number"
+                value={data.height}
+                onChange={(e) => setData({ ...data, height: e.target.value })}
+              />
+            </div>
+          </div>
+        </OnboardingLayout>
+      )}
 
-        {/* Navigation */}
-        <div className="flex items-center justify-between mt-8">
-          {step > 0 ? (
-            <button className="btn-glass flex items-center gap-1" onClick={() => setStep(s => s - 1)}>
-              <ChevronLeft size={18} /> Back
-            </button>
-          ) : <div />}
+      {step === 2 && (
+        <OnboardingLayout
+          step={2}
+          totalSteps={TOTAL_STEPS}
+          title="Activity Level"
+          icon={<Activity className="h-6 w-6" />}
+          onBack={back}
+          onNext={next}
+        >
+          <div className="grid grid-cols-2 gap-3">
+            {activities.map((a) => (
+              <button
+                key={a.key}
+                onClick={() => setData({ ...data, activity: a.key })}
+                className={`rounded-lg border p-4 text-left transition-all active:scale-[0.97] ${
+                  data.activity === a.key
+                    ? "border-primary/50 bg-primary/10 shadow-[0_0_12px_hsl(var(--primary)/0.15)]"
+                    : "border-border hover:border-muted-foreground/40"
+                }`}
+              >
+                <span className="text-xl">{a.emoji}</span>
+                <p className="mt-2 text-sm font-semibold text-foreground">{a.label}</p>
+                <p className="text-xs text-muted-foreground">{a.desc}</p>
+              </button>
+            ))}
+          </div>
+        </OnboardingLayout>
+      )}
 
-          {step < STEPS.length - 1 ? (
-            <button className="btn-primary flex items-center gap-1"
-              disabled={!canNext()} onClick={() => setStep(s => s + 1)}>
-              Next <ChevronRight size={18} />
-            </button>
-          ) : (
-            <button className="btn-primary flex items-center gap-2" onClick={handleFinish}>
-              <Droplets size={18} /> Start Hydrating
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
+      {step === 3 && (
+        <OnboardingLayout
+          step={3}
+          totalSteps={TOTAL_STEPS}
+          title="Your Schedule"
+          icon={<Clock className="h-6 w-6" />}
+          subtitle="We'll space your hydration milestones evenly."
+          onBack={back}
+          onNext={next}
+        >
+          <div className="flex gap-8">
+            <div>
+              <label className={labelClasses}>Wake Up</label>
+              <input
+                type="time"
+                className={`${inputClasses} max-w-[140px]`}
+                value={data.wakeUp}
+                onChange={(e) => setData({ ...data, wakeUp: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className={labelClasses}>Sleep</label>
+              <input
+                type="time"
+                className={`${inputClasses} max-w-[140px]`}
+                value={data.sleep}
+                onChange={(e) => setData({ ...data, sleep: e.target.value })}
+              />
+            </div>
+          </div>
+        </OnboardingLayout>
+      )}
+
+      {step === 4 && (
+        <OnboardingLayout
+          step={4}
+          totalSteps={TOTAL_STEPS}
+          title="Your Plan"
+          icon={<Sparkles className="h-6 w-6" />}
+          onBack={back}
+          onNext={isSubmitting ? undefined : handleFinish}
+          nextLabel={isSubmitting ? "Saving..." : "Start Hydrating"}
+          nextIcon={<Droplets className="h-4 w-4" />}
+        >
+          <div className="rounded-lg border border-border bg-card p-5 space-y-3">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">BMI</span>
+              <span className="font-semibold text-primary">{bmi}</span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Daily Goal</span>
+              <span className="font-semibold text-primary">{dailyGoal} ml</span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Reminder Interval</span>
+              <span className="font-semibold text-primary">60 mins</span>
+            </div>
+          </div>
+        </OnboardingLayout>
+      )}
+    </>
   );
-}
+};
+
+export default Onboarding;
