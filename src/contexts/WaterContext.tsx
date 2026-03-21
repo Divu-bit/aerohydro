@@ -141,8 +141,12 @@ export function WaterProvider({ children }: { children: React.ReactNode }) {
     const newSettings = { ...settings, ...partial };
     setSettings(newSettings); // Optimistically
 
+    // Strip telegramChatId — it's managed exclusively by the Telegram bot's /start handler.
+    // Sending null from the frontend would overwrite the value the bot saved.
+    const { telegramChatId, ...profileToSave } = newSettings;
+
     try {
-      await createOrUpdateUser(newSettings, null, profileId);
+      await createOrUpdateUser(profileToSave, null, profileId);
     } catch (e) {
       console.error("Failed to update settings in backend", e);
     }
