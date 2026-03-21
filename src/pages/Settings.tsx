@@ -28,14 +28,12 @@ export default function Settings() {
 
   const handleGoalBlur = () => {
     const val = parseInt(goalInput, 10);
-    if (val > 0) updateSettings({ dailyGoal: val });
-    else setGoalInput(String(settings.dailyGoal));
+    if (!(val > 0)) setGoalInput(String(settings.dailyGoal));
   };
 
   const handleIntervalBlur = () => {
     const val = parseInt(intervalInput, 10);
-    if (val > 0) updateSettings({ reminderInterval: val });
-    else setIntervalInput(String(settings.reminderInterval));
+    if (!(val > 0)) setIntervalInput(String(settings.reminderInterval));
   };
 
   const addCupSize = () => {
