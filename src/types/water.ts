@@ -16,6 +16,9 @@ export interface WaterSettings {
   cupSizes: number[]; // ml
   unit: 'ml' | 'oz';
   notificationsEnabled: boolean;
+  telegramChatId: string | null;
+  phoneNumber: string | null;
+  notificationPreference: 'browser' | 'telegram' | 'twilio' | 'none';
 }
 
 export interface WaterState {

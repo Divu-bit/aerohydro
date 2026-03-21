@@ -26,6 +26,14 @@ const UserSchema = new mongoose.Schema({
   reminderInterval: { type: Number, default: 60 },
   cupSizes: { type: [Number], default: [100, 250, 500] },
   notificationsEnabled: { type: Boolean, default: false },
+  telegramChatId: { type: String, default: null },
+  phoneNumber: { type: String, default: null },
+  notificationPreference: { 
+    type: String, 
+    enum: ['browser', 'telegram', 'twilio', 'none'], 
+    default: 'browser' 
+  },
+  lastRemindedAt: { type: Date, default: null },
   logs: [DailyLogSchema],
 }, { timestamps: true });
 

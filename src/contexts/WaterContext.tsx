@@ -8,6 +8,9 @@ const DEFAULT_SETTINGS: WaterSettings = {
   cupSizes: [100, 250, 500],
   unit: 'ml',
   notificationsEnabled: false,
+  telegramChatId: null,
+  phoneNumber: null,
+  notificationPreference: 'browser'
 };
 
 function getToday(): string {
@@ -56,6 +59,9 @@ export function WaterProvider({ children }: { children: React.ReactNode }) {
         cupSizes: profile.cupSizes?.length ? profile.cupSizes : DEFAULT_SETTINGS.cupSizes,
         unit: profile.unit || DEFAULT_SETTINGS.unit,
         notificationsEnabled: profile.notificationsEnabled || false,
+        notificationPreference: profile.notificationPreference || 'browser',
+        telegramChatId: profile.telegramChatId || null,
+        phoneNumber: profile.phoneNumber || null,
       });
 
       // Reconstruct history dictionary from logs array

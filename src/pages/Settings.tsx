@@ -24,6 +24,7 @@ export default function Settings() {
   const [goalInput, setGoalInput] = useState(String(settings.dailyGoal));
   const [intervalInput, setIntervalInput] = useState(String(settings.reminderInterval));
   const [cupInput, setCupInput] = useState('');
+  const [phoneInput, setPhoneInput] = useState(settings.phoneNumber || '');
 
   const handleGoalBlur = () => {
     const val = parseInt(goalInput, 10);
@@ -58,6 +59,7 @@ export default function Settings() {
     await updateSettings({
       dailyGoal: dailyGoal > 0 ? dailyGoal : settings.dailyGoal,
       reminderInterval: reminderInterval > 0 ? reminderInterval : settings.reminderInterval,
+      phoneNumber: phoneInput || settings.phoneNumber,
     });
     
     toast.success('Settings saved successfully!');
@@ -158,23 +160,74 @@ export default function Settings() {
             </div>
 
             {/* Notifications */}
-            <div className="glass rounded-2xl p-6 flex items-center justify-between">
+            <div className="glass rounded-2xl p-6 space-y-4">
               <div>
-                <p className="text-sm font-semibold text-foreground">Browser Notifications</p>
-                <p className="text-xs text-muted-foreground mt-0.5">Get reminded to drink water</p>
+                <p className="text-sm font-semibold text-foreground">Notification Method</p>
+                <p className="text-xs text-muted-foreground mt-0.5">How would you like to be reminded?</p>
               </div>
-              <Switch
-                checked={settings.notificationsEnabled}
-                onCheckedChange={v => {
-                  if (v && 'Notification' in window) {
-                    Notification.requestPermission().then(p => {
-                      updateSettings({ notificationsEnabled: p === 'granted' });
-                    });
-                  } else {
-                    updateSettings({ notificationsEnabled: v });
-                  }
-                }}
-              />
+              <Select
+                value={settings.notificationPreference}
+                onValueChange={(v: 'none' | 'browser' | 'telegram' | 'twilio') => updateSettings({ notificationPreference: v })}
+              >
+                <SelectTrigger className="rounded-xl w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  <SelectItem value="browser">Browser Popups</SelectItem>
+                  <SelectItem value="telegram">Telegram Bot</SelectItem>
+                  <SelectItem value="twilio">SMS Text (Twilio)</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {settings.notificationPreference === 'browser' && (
+                <div className="text-sm font-medium text-foreground flex items-center justify-between mt-2 p-3 bg-secondary/50 rounded-lg">
+                  <span>Enable Browser Permission</span>
+                  <Switch
+                    checked={settings.notificationsEnabled}
+                    onCheckedChange={v => {
+                      if (v && 'Notification' in window) {
+                        Notification.requestPermission().then(p => {
+                          updateSettings({ notificationsEnabled: p === 'granted' });
+                        });
+                      } else {
+                        updateSettings({ notificationsEnabled: v });
+                      }
+                    }}
+                  />
+                </div>
+              )}
+
+              {settings.notificationPreference === 'twilio' && (
+                <div className="mt-2 space-y-2 p-3 bg-secondary/20 rounded-lg">
+                  <Label className="text-xs">Your Phone Number</Label>
+                  <Input 
+                    type="tel"
+                    placeholder="+1234567890" 
+                    value={phoneInput}
+                    onChange={(e) => setPhoneInput(e.target.value)}
+                    onBlur={() => updateSettings({ phoneNumber: phoneInput })}
+                    className="rounded-xl border-secondary"
+                  />
+                  <p className="text-[10px] text-muted-foreground">Include country code.</p>
+                </div>
+              )}
+
+              {settings.notificationPreference === 'telegram' && (
+                <div className="mt-2 pt-2 p-3 bg-[#229ED9]/5 border border-[#229ED9]/10 rounded-lg text-center">
+                  <p className="text-xs text-muted-foreground mb-3">To receive reminders on Telegram, open our Bot and click Start, then save your settings!</p>
+                  <Button 
+                    variant="outline" 
+                    className="w-full rounded-xl bg-[#229ED9]/10 text-[#229ED9] border-[#229ED9]/30 hover:bg-[#229ED9]/20"
+                    onClick={() => {
+                        const uid = localStorage.getItem('aerohydro_userid');
+                        window.open(`https://t.me/AeroHydroBot?start=${uid}`, '_blank');
+                    }}
+                  >
+                    Link Telegram Bot
+                  </Button>
+                </div>
+              )}
             </div>
 
             {/* Reset */}

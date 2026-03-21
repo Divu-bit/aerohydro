@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import userRoutes from './routes/userRoutes.js';
+import { startCronJobs } from './cronJobs.js';
 
 dotenv.config();
 
@@ -21,6 +22,7 @@ mongoose
   .connect(process.env.MONGO_URI || 'mongodb+srv://deewakarsngh2004_db_user:Spider%403506@cluster0.5y6720u.mongodb.net/aerohydro')
   .then(() => {
     console.log('Connected to MongoDB');
+    startCronJobs();
     app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
     });
