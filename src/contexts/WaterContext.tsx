@@ -153,9 +153,17 @@ export function WaterProvider({ children }: { children: React.ReactNode }) {
   }, [settings, profileId]);
 
   const resetAllData = useCallback(async () => {
+    // Stop external notifications before wiping local data
+    if (profileId) {
+      try {
+        await createOrUpdateUser({ notificationPreference: 'none', notificationsEnabled: false }, null, profileId);
+      } catch (e) {
+        console.error("Failed to disable notifications on reset", e);
+      }
+    }
     clearAllData();
     window.location.href = '/';
-  }, []);
+  }, [profileId]);
 
   // Compute week data
   const weekData = useMemo(() => {
