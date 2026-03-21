@@ -27,6 +27,12 @@ if (TELEGRAM_TOKEN) {
     const userId = match[1];
     
     try {
+      // First, completely detach this telegram Chat ID from any old 'ghost' accounts a user might have abandoned
+      await User.updateMany(
+        { telegramChatId: String(chatId) },
+        { $unset: { telegramChatId: "" } }
+      );
+
       const user = await User.findById(userId);
       if (user) {
         user.telegramChatId = String(chatId);
@@ -53,7 +59,7 @@ if (TELEGRAM_TOKEN) {
 
     try {
       // Find the user by their telegram chat ID
-      const user = await User.findOne({ telegramChatId: String(chatId) });
+      const user = await User.findOne({ telegramChatId: String(chatId), notificationPreference: 'telegram' });
       if (!user) {
         bot.answerCallbackQuery(callbackQuery.id, { text: '❌ Account not linked!' });
         return;
