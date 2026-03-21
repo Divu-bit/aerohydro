@@ -3,7 +3,7 @@ import { BrowserRouter, Route, Routes, Navigate, useLocation } from "react-route
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { WaterProvider } from "@/contexts/WaterContext";
+import { WaterProvider, useWater } from "@/contexts/WaterContext";
 import TopNav from "@/components/TopNav";
 import Index from "@/pages/Index";
 import Settings from "@/pages/Settings";
