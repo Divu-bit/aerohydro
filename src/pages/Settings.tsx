@@ -171,7 +171,11 @@ export default function Settings() {
               </div>
               <Select
                 value={settings.notificationPreference}
-                onValueChange={(v: 'none' | 'browser' | 'telegram' | 'twilio') => updateSettings({ notificationPreference: v })}
+                onValueChange={(v: 'none' | 'browser' | 'telegram' | 'twilio') => {
+                  // Auto-enable notifications for telegram/twilio, disable for 'none'
+                  const autoEnabled = v === 'telegram' || v === 'twilio';
+                  updateSettings({ notificationPreference: v, notificationsEnabled: v === 'none' ? false : (autoEnabled ? true : settings.notificationsEnabled) });
+                }}
               >
                 <SelectTrigger className="rounded-xl w-full">
                   <SelectValue />
