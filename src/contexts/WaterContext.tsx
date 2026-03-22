@@ -76,6 +76,10 @@ export function WaterProvider({ children }: { children: React.ReactNode }) {
       setHistory(hist);
     }).catch(e => {
       console.error("Failed to load user from DB", e);
+      if (e.message === 'User not found') {
+        clearAllData();
+        window.location.href = '/onboarding';
+      }
     }).finally(() => {
       setLoading(false);
     });

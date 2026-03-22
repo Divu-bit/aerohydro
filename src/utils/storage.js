@@ -45,6 +45,9 @@ export function getLocalToday() {
 
 export async function fetchUserAndLog(id) {
   const res = await fetch(`${API_URL}/${id}`);
+  if (res.status === 404) {
+    throw new Error('User not found');
+  }
   if (!res.ok) throw new Error('Failed to fetch user');
   const user = await res.json();
   
