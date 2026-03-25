@@ -48,6 +48,7 @@ interface WaterContextType {
   todayRecord: DayRecord;
   addWater: (amount: number) => Promise<void>;
   removeEntry: (id: string) => Promise<void>;
+  resetToday: () => Promise<void>;
   weekData: { day: string; total: number; goal: number }[];
   streak: number;
   resetAllData: () => Promise<void>;
@@ -177,6 +178,22 @@ export function WaterProvider({ children }: { children: React.ReactNode }) {
     }
   }, [profileId, todayRecord, activeDayKey]);
 
+  const resetToday = useCallback(async () => {
+    if (!profileId) return;
+
+    // Optimistic update — set active day to 0
+    setHistory(prev => ({
+      ...prev,
+      [activeDayKey]: { date: activeDayKey, entries: [], total: 0 }
+    }));
+
+    try {
+      await logWaterAPI(profileId, activeDayKey, 0, []);
+    } catch (e) {
+      console.error("Failed to reset today's water log", e);
+    }
+  }, [profileId, activeDayKey]);
+
   const updateSettings = useCallback(async (partial: Partial<WaterSettings>) => {
     if (!profileId) return;
     
@@ -296,6 +313,7 @@ export function WaterProvider({ children }: { children: React.ReactNode }) {
         todayRecord,
         addWater,
         removeEntry,
+        resetToday,
         weekData,
         streak,
         resetAllData,

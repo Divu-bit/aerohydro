@@ -4,10 +4,22 @@ import IntakeTimeline from '@/components/IntakeTimeline';
 import WeeklyChart from '@/components/WeeklyChart';
 import StreakCounter from '@/components/StreakCounter';
 import { useWater } from '@/contexts/WaterContext';
-import { Target, TrendingUp } from 'lucide-react';
+import { Target, TrendingUp, RotateCcw } from 'lucide-react';
+import { useState } from 'react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 export default function Index() {
-  const { todayRecord, settings, userName } = useWater();
+  const { todayRecord, settings, userName, resetToday } = useWater();
   const remaining = Math.max(settings.dailyGoal - todayRecord.total, 0);
   const remainLabel = settings.unit === 'oz'
     ? `${(remaining * 0.033814).toFixed(0)} oz`
@@ -48,6 +60,36 @@ export default function Index() {
               </div>
               <StreakCounter />
             </div>
+
+            {/* Reset Today */}
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <button
+                  className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-destructive transition-colors mt-1 ml-1"
+                  title="Reset today's intake to 0"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  Reset Today
+                </button>
+              </AlertDialogTrigger>
+              <AlertDialogContent className="glass rounded-3xl">
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Reset today's intake?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will set today's water intake to 0 ml. Your other history and settings will not be affected.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={resetToday}
+                    className="rounded-xl bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    Reset
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
 
           {/* Right column — Chart + Timeline */}
