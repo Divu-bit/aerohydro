@@ -40,7 +40,39 @@ export default function Index() {
         <div className="grid grid-cols-12 gap-6">
           {/* Left column — Progress + Quick Add */}
           <div className="col-span-12 lg:col-span-5 space-y-6">
-            <div className="glass rounded-2xl p-8">
+            <div className="glass rounded-2xl p-8 relative">
+              {/* Reset Today */}
+              <div className="absolute top-4 right-4">
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <button
+                      className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-destructive transition-colors p-2 rounded-lg hover:bg-destructive/10"
+                      title="Reset today's intake to 0"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      Reset
+                    </button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent className="glass rounded-3xl">
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Reset today's intake?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This will set today's water intake to 0 ml. Your other history and settings will not be affected.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={resetToday}
+                        className="rounded-xl bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      >
+                        Reset
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
+
               <WaterProgress />
               <div className="mt-4">
                 <QuickAddButtons />
@@ -60,36 +92,6 @@ export default function Index() {
               </div>
               <StreakCounter />
             </div>
-
-            {/* Reset Today */}
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <button
-                  className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-destructive transition-colors mt-1 ml-1"
-                  title="Reset today's intake to 0"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                  Reset Today
-                </button>
-              </AlertDialogTrigger>
-              <AlertDialogContent className="glass rounded-3xl">
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Reset today's intake?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This will set today's water intake to 0 ml. Your other history and settings will not be affected.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={resetToday}
-                    className="rounded-xl bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                  >
-                    Reset
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
           </div>
 
           {/* Right column — Chart + Timeline */}
