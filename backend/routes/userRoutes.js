@@ -67,9 +67,12 @@ router.post('/:id/logWater', async (req, res) => {
     }
 
     // If this is a reset (total=0), clear the goal notification flag
-    // so reminders can resume for this day
-    if (total === 0 && user.goalCompletedNotifiedDate === date) {
-      user.goalCompletedNotifiedDate = null;
+    // so reminders can resume, and reset the reminder timer to right now
+    if (total === 0) {
+      if (user.goalCompletedNotifiedDate === date) {
+        user.goalCompletedNotifiedDate = null;
+      }
+      user.lastRemindedAt = new Date();
     }
 
     await user.save();
