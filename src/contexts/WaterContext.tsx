@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { WaterSettings, WaterEntry, DayRecord, WaterState } from '@/types/water';
 import { getUserId, fetchUserAndLog, createOrUpdateUser, logWaterAPI, clearAllData, getLocalToday, getLocalDateString } from '@/utils/storage';
 
@@ -7,11 +7,35 @@ const DEFAULT_SETTINGS: WaterSettings = {
   reminderInterval: 60,
   cupSizes: [100, 250, 500],
   unit: 'ml',
+  wakeTime: '07:00',
+  sleepTime: '23:00',
   notificationsEnabled: false,
   telegramChatId: null,
   phoneNumber: null,
   notificationPreference: 'browser'
 };
+
+// Helper: convert "HH:MM" to minutes since midnight
+function timeToMinutes(t: string): number {
+  const [h, m] = t.split(':').map(Number);
+  return h * 60 + m;
+}
+
+// Check if current time is past sleep time
+function isPastSleepTime(sleepTime: string): boolean {
+  const now = new Date();
+  const nowMins = now.getHours() * 60 + now.getMinutes();
+  return nowMins >= timeToMinutes(sleepTime);
+}
+
+// Check if current time is within wake-sleep window
+function isWithinWakeSleepWindow(wakeTime: string, sleepTime: string): boolean {
+  const now = new Date();
+  const nowMins = now.getHours() * 60 + now.getMinutes();
+  const wake = timeToMinutes(wakeTime);
+  const sleep = timeToMinutes(sleepTime);
+  return nowMins >= wake && nowMins < sleep;
+}
 
 function getToday(): string {
   return getLocalToday();
@@ -58,6 +82,8 @@ export function WaterProvider({ children }: { children: React.ReactNode }) {
         reminderInterval: profile.reminderInterval || DEFAULT_SETTINGS.reminderInterval,
         cupSizes: profile.cupSizes?.length ? profile.cupSizes : DEFAULT_SETTINGS.cupSizes,
         unit: profile.unit || DEFAULT_SETTINGS.unit,
+        wakeTime: profile.wakeTime || DEFAULT_SETTINGS.wakeTime,
+        sleepTime: profile.sleepTime || DEFAULT_SETTINGS.sleepTime,
         notificationsEnabled: profile.notificationsEnabled || false,
         notificationPreference: profile.notificationPreference || 'browser',
         telegramChatId: profile.telegramChatId || null,
@@ -86,8 +112,20 @@ export function WaterProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const todayKey = getToday();
-  const todayRecord: DayRecord = history[todayKey] || {
-    date: todayKey,
+
+  // activeDayKey: after sleep time, switch to tomorrow's key so dashboard resets to 0
+  const activeDayKey = useMemo(() => {
+    if (isPastSleepTime(settings.sleepTime)) {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      return getLocalDateString(tomorrow);
+    }
+    return todayKey;
+  }, [todayKey, settings.sleepTime]);
+
+  // todayRecord for dashboard uses activeDayKey (resets after sleep)
+  const todayRecord: DayRecord = history[activeDayKey] || {
+    date: activeDayKey,
     entries: [],
     total: 0,
   };
@@ -107,15 +145,15 @@ export function WaterProvider({ children }: { children: React.ReactNode }) {
     // Optimistic update
     setHistory(prev => ({
       ...prev,
-      [todayKey]: { ...todayRecord, entries: newEntries, total: newTotal }
+      [activeDayKey]: { ...todayRecord, entries: newEntries, total: newTotal }
     }));
 
     try {
-      await logWaterAPI(profileId, todayKey, newTotal, newEntries);
+      await logWaterAPI(profileId, activeDayKey, newTotal, newEntries);
     } catch (e) {
       console.error("Failed to log water to backend", e);
     }
-  }, [profileId, todayRecord, todayKey]);
+  }, [profileId, todayRecord, activeDayKey]);
 
   const removeEntry = useCallback(async (id: string) => {
     if (!profileId) return;
@@ -129,15 +167,15 @@ export function WaterProvider({ children }: { children: React.ReactNode }) {
     // Optimistic update
     setHistory(prev => ({
       ...prev,
-      [todayKey]: { ...todayRecord, entries: newEntries, total: newTotal }
+      [activeDayKey]: { ...todayRecord, entries: newEntries, total: newTotal }
     }));
 
     try {
-      await logWaterAPI(profileId, todayKey, newTotal, newEntries);
+      await logWaterAPI(profileId, activeDayKey, newTotal, newEntries);
     } catch (e) {
       console.error("Failed to remove water from backend", e);
     }
-  }, [profileId, todayRecord, todayKey]);
+  }, [profileId, todayRecord, activeDayKey]);
 
   const updateSettings = useCallback(async (partial: Partial<WaterSettings>) => {
     if (!profileId) return;
@@ -207,29 +245,47 @@ export function WaterProvider({ children }: { children: React.ReactNode }) {
     return count;
   }, [history, settings.dailyGoal]);
 
+  // Track whether we've already sent the goal-completed browser notification for the current active day
+  const goalNotifiedDayRef = useRef<string | null>(null);
+
   // Notifications logic
   useEffect(() => {
     if (!settings.notificationsEnabled || typeof window === 'undefined') return;
+    if (settings.notificationPreference !== 'browser') return;
     if (!('Notification' in window) || Notification.permission !== 'granted') return;
 
-    // Check every X minutes
+    const currentRemaining = Math.max(0, settings.dailyGoal - todayRecord.total);
+
+    // ── Goal completed notification (one-time) ──
+    if (currentRemaining <= 0 && goalNotifiedDayRef.current !== activeDayKey) {
+      goalNotifiedDayRef.current = activeDayKey;
+      new Notification('🎉 Goal Completed!', {
+        body: `You've reached your daily goal of ${settings.dailyGoal}${settings.unit}! Amazing work!`,
+        icon: '/vite.svg',
+      });
+      return; // No interval needed — goal met
+    }
+
+    // If goal already met, don't set up reminders
+    if (currentRemaining <= 0) return;
+
+    // ── Periodic reminders (only within wake–sleep window) ──
     const intervalMs = settings.reminderInterval * 60 * 1000;
-    
+
     const intervalId = setInterval(() => {
-      // Using dependency array means this timer resets every time the user logs water!
-      const currentRemaining = Math.max(0, settings.dailyGoal - todayRecord.total);
-      
-      if (currentRemaining > 0) {
-        console.log(`[Notification] Firing hydration reminder! Remaining: ${currentRemaining}${settings.unit}`);
+      if (!isWithinWakeSleepWindow(settings.wakeTime, settings.sleepTime)) return;
+
+      const remaining = Math.max(0, settings.dailyGoal - todayRecord.total);
+      if (remaining > 0) {
         new Notification('💧 Time to Hydrate!', {
-          body: `You still have ${currentRemaining}${settings.unit} left to reach your daily goal. Take a sip!`,
+          body: `You still have ${remaining}${settings.unit} left to reach your daily goal. Take a sip!`,
           icon: '/vite.svg',
         });
       }
     }, intervalMs);
 
     return () => clearInterval(intervalId);
-  }, [settings.notificationsEnabled, settings.reminderInterval, settings.dailyGoal, todayRecord.total, settings.unit]);
+  }, [settings.notificationsEnabled, settings.notificationPreference, settings.reminderInterval, settings.dailyGoal, todayRecord.total, settings.unit, settings.wakeTime, settings.sleepTime, activeDayKey]);
 
   return (
     <WaterContext.Provider

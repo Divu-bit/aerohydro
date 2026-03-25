@@ -8,7 +8,21 @@ import {
   ResponsiveContainer,
   ReferenceLine,
   Cell,
+  Tooltip,
 } from 'recharts';
+
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-card border border-border rounded-lg px-3 py-2 shadow-lg">
+        <p className="text-sm font-semibold text-foreground">
+          {label}: <span className="text-primary">{payload[0].value} ml</span>
+        </p>
+      </div>
+    );
+  }
+  return null;
+};
 
 export default function WeeklyChart() {
   const { weekData, settings } = useWater();
@@ -27,6 +41,7 @@ export default function WeeklyChart() {
               tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }}
             />
             <YAxis hide />
+            <Tooltip content={<CustomTooltip />} cursor={{ fill: 'hsl(var(--primary) / 0.08)' }} />
             <ReferenceLine
               y={settings.dailyGoal}
               stroke="hsl(var(--primary))"

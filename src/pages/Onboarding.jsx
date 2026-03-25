@@ -61,6 +61,8 @@ const Onboarding = () => {
       reminderInterval: 60, // Default 60 mins
       cupSizes: [100, 250, 500],
       unit: "ml",
+      wakeTime: data.wakeUp,
+      sleepTime: data.sleep,
       notificationsEnabled: false
     };
 

@@ -140,8 +140,65 @@ export async function handleTelegramWebhook(update) {
 }
 
 // ============================================================
+// Helper: convert "HH:MM" to minutes since midnight
+// ============================================================
+function timeToMinutes(t) {
+  if (!t) return null;
+  const [h, m] = t.split(':').map(Number);
+  return h * 60 + m;
+}
+
+// Helper: get current IST minutes since midnight
+function getCurrentISTMinutes() {
+  const d = new Date();
+  d.setMinutes(d.getMinutes() + 330); // UTC → IST
+  return d.getUTCHours() * 60 + d.getUTCMinutes();
+}
+
+// ============================================================
+// sendNotification — delivers a message via telegram or twilio
+// ============================================================
+async function sendNotification(user, msg, includeButtons = false) {
+  if (user.notificationPreference === 'telegram') {
+    if (bot && user.telegramChatId) {
+      const opts = { parse_mode: 'Markdown' };
+      if (includeButtons) {
+        opts.reply_markup = {
+          inline_keyboard: [
+            [
+              { text: '🥤 100ml', callback_data: 'drink_100' },
+              { text: '🥛 250ml', callback_data: 'drink_250' },
+              { text: '🍶 500ml', callback_data: 'drink_500' }
+            ]
+          ]
+        };
+      }
+      await bot.sendMessage(user.telegramChatId, msg, opts);
+      return true;
+    }
+    console.log(`[SIMULATED TELEGRAM to ${user.name}] ${msg}`);
+  } else if (user.notificationPreference === 'twilio') {
+    if (twilioClient && user.phoneNumber && TWILIO_PHONE) {
+      await twilioClient.messages.create({
+        body: msg,
+        from: TWILIO_PHONE,
+        to: user.phoneNumber
+      });
+      return true;
+    }
+    console.log(`[SIMULATED SMS to ${user.phoneNumber || user.name}] ${msg}`);
+  }
+  return false;
+}
+
+// ============================================================
 // processReminders  — called by GET /api/cron/reminders
 // One-shot: checks every user and sends due reminders.
+//
+// Logic:
+//   1. If goal met & not yet notified today → send "goal completed!" and stop
+//   2. If past sleep time & goal NOT met & not yet notified → send "goal missed"
+//   3. If within wake–sleep window & goal not met → normal reminder (interval-based)
 // ============================================================
 export async function processReminders() {
   const users = await User.find({
@@ -150,6 +207,7 @@ export async function processReminders() {
   });
 
   const today = getLocalToday();
+  const nowMins = getCurrentISTMinutes();
   const now = new Date();
   let sent = 0;
 
@@ -157,59 +215,56 @@ export async function processReminders() {
     const log = user.logs.find(l => l.date === today);
     const logged = log ? log.logged : 0;
     const remaining = Math.max(0, user.dailyGoal - logged);
+    const alreadyNotifiedToday = user.goalCompletedNotifiedDate === today;
 
-    // Already met goal — skip
-    if (remaining <= 0) continue;
+    const wakeMins = timeToMinutes(user.wakeTime) ?? 7 * 60;   // default 07:00
+    const sleepMins = timeToMinutes(user.sleepTime) ?? 23 * 60; // default 23:00
 
-    // Check if enough time has passed based on reminderInterval
+    // ── Case 1: Goal completed ──
+    if (remaining <= 0 && !alreadyNotifiedToday) {
+      const msg = `🎉 Amazing, ${user.name || 'there'}! You've reached your daily goal of **${user.dailyGoal}${user.unit}**! Great job staying hydrated! 🏆`;
+      try {
+        const ok = await sendNotification(user, msg);
+        if (ok) sent++;
+      } catch (err) {
+        console.error(`Goal-complete send error for ${user.name}:`, err.message);
+      }
+      user.goalCompletedNotifiedDate = today;
+      await user.save();
+      continue; // No further reminders needed
+    }
+
+    // If already notified (goal met earlier or missed earlier), skip entirely
+    if (alreadyNotifiedToday) continue;
+
+    // ── Case 2: Sleep time passed & goal NOT met ──
+    if (nowMins >= sleepMins) {
+      const msg = `😴 Hey ${user.name || 'there'}, your day is over but you didn't complete your hydration goal.\n\n**${remaining}${user.unit}** was left out of your **${user.dailyGoal}${user.unit}** goal. Try to do better tomorrow! 💪`;
+      try {
+        const ok = await sendNotification(user, msg);
+        if (ok) sent++;
+      } catch (err) {
+        console.error(`Goal-missed send error for ${user.name}:`, err.message);
+      }
+      user.goalCompletedNotifiedDate = today;
+      await user.save();
+      continue;
+    }
+
+    // ── Case 3: Normal reminder (only within wake–sleep window) ──
+    if (nowMins < wakeMins) continue; // Before wake time — skip
+
     const lastReminded = user.lastRemindedAt || new Date(now.getTime() - (user.reminderInterval * 60 * 1000 + 1));
-    const diffMs = now - lastReminded;
-    const diffMins = diffMs / 60000;
+    const diffMins = (now - lastReminded) / 60000;
 
     if (diffMins >= user.reminderInterval) {
       const msg = `💧 Hey ${user.name || 'there'}! Time to hydrate.\n\nYou still have **${remaining}${user.unit}** left to reach your daily goal.\n\nTap a button below to log your intake:`;
-
-      if (user.notificationPreference === 'telegram') {
-        if (bot && user.telegramChatId) {
-          try {
-            await bot.sendMessage(user.telegramChatId, msg, {
-              parse_mode: 'Markdown',
-              reply_markup: {
-                inline_keyboard: [
-                  [
-                    { text: '🥤 100ml', callback_data: 'drink_100' },
-                    { text: '🥛 250ml', callback_data: 'drink_250' },
-                    { text: '🍶 500ml', callback_data: 'drink_500' }
-                  ]
-                ]
-              }
-            });
-            sent++;
-          } catch (err) {
-            console.error(`Telegram send error for ${user.name}:`, err.message);
-          }
-        } else {
-          console.log(`[SIMULATED TELEGRAM to ${user.name}] ${msg}`);
-        }
-      } else if (user.notificationPreference === 'twilio') {
-        const smsMsg = `💧 Hey ${user.name || 'there'}! Time to hydrate. You still have ${remaining}${user.unit} left to reach your daily goal!`;
-        if (twilioClient && user.phoneNumber && TWILIO_PHONE) {
-          try {
-            await twilioClient.messages.create({
-              body: smsMsg,
-              from: TWILIO_PHONE,
-              to: user.phoneNumber
-            });
-            sent++;
-          } catch (err) {
-            console.error(`Twilio send error for ${user.name}:`, err.message);
-          }
-        } else {
-          console.log(`[SIMULATED SMS to ${user.phoneNumber || user.name}] ${smsMsg}`);
-        }
+      try {
+        const ok = await sendNotification(user, msg, true);
+        if (ok) sent++;
+      } catch (err) {
+        console.error(`Reminder send error for ${user.name}:`, err.message);
       }
-
-      // Update last reminded time
       user.lastRemindedAt = now;
       await user.save();
     }

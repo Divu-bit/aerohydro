@@ -15,6 +15,8 @@ export interface WaterSettings {
   reminderInterval: number; // minutes
   cupSizes: number[]; // ml
   unit: 'ml' | 'oz';
+  wakeTime: string; // HH:MM
+  sleepTime: string; // HH:MM
   notificationsEnabled: boolean;
   telegramChatId: string | null;
   phoneNumber: string | null;

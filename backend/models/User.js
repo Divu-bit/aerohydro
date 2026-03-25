@@ -34,6 +34,7 @@ const UserSchema = new mongoose.Schema({
     default: 'browser' 
   },
   lastRemindedAt: { type: Date, default: null },
+  goalCompletedNotifiedDate: { type: String, default: null },
   logs: [DailyLogSchema],
 }, { timestamps: true });
 

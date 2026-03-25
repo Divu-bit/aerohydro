@@ -120,6 +120,32 @@ export default function Settings() {
                 className="rounded-xl max-w-xs"
               />
             </div>
+
+            {/* Wake & Sleep Time */}
+            <div className="glass rounded-2xl p-6 space-y-3">
+              <Label className="text-sm font-semibold">Schedule</Label>
+              <p className="text-xs text-muted-foreground">Reminders are only sent between wake and sleep times. Dashboard resets after sleep time.</p>
+              <div className="flex gap-6">
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Wake Up</Label>
+                  <Input
+                    type="time"
+                    value={settings.wakeTime}
+                    onChange={e => updateSettings({ wakeTime: e.target.value })}
+                    className="rounded-xl max-w-[140px]"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Sleep</Label>
+                  <Input
+                    type="time"
+                    value={settings.sleepTime}
+                    onChange={e => updateSettings({ sleepTime: e.target.value })}
+                    className="rounded-xl max-w-[140px]"
+                  />
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Right column */}
