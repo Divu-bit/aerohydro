@@ -181,6 +181,9 @@ export function WaterProvider({ children }: { children: React.ReactNode }) {
   const resetToday = useCallback(async () => {
     if (!profileId) return;
 
+    // Clear the goal-completed browser notification flag so reminders resume
+    goalNotifiedDayRef.current = null;
+
     // Optimistic update — set active day to 0
     setHistory(prev => ({
       ...prev,
