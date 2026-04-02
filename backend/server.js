@@ -62,15 +62,19 @@ app.post('/api/webhook/universal', async (req, res) => {
   }
 });
 
-// Connect to MongoDB
-mongoose
-  .connect(process.env.MONGO_URI || 'mongodb+srv://deewakarsngh2004_db_user:Spider%403506@cluster0.5y6720u.mongodb.net/aerohydro')
-  .then(() => {
+// Connect to MongoDB & Start Server
+// IMPORTANT: Bind to port FIRST so Render sees the service as alive immediately.
+// Each route handler already uses `await mongoose.connection.asPromise()` to
+// ensure DB is connected before processing, so this is safe.
+
+app.listen(PORT, async () => {
+  console.log(`Server running on port ${PORT}`);
+
+  try {
+    await mongoose.connect(process.env.MONGO_URI || 'mongodb+srv://deewakarsngh2004_db_user:Spider%403506@cluster0.5y6720u.mongodb.net/aerohydro');
     console.log('Connected to MongoDB');
-    app.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`);
-    });
-  })
-  .catch((err) => {
+  } catch (err) {
     console.error('MongoDB connection error:', err);
-  });
+    process.exit(1);
+  }
+});
