@@ -28,9 +28,10 @@ const UserSchema = new mongoose.Schema({
   notificationsEnabled: { type: Boolean, default: false },
   telegramChatId: { type: String, default: null },
   phoneNumber: { type: String, default: null },
+  universalAppUserId: { type: String, default: null },
   notificationPreference: { 
     type: String, 
-    enum: ['browser', 'telegram', 'twilio', 'none'], 
+    enum: ['browser', 'telegram', 'twilio', 'universal', 'none'], 
     default: 'browser' 
   },
   lastRemindedAt: { type: Date, default: null },

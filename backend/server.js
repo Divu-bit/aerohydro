@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import userRoutes from './routes/userRoutes.js';
-import { processReminders, handleTelegramWebhook } from './cronJobs.js';
+import { processReminders, handleTelegramWebhook, handleUniversalWebhook } from './cronJobs.js';
 
 dotenv.config();
 
@@ -42,6 +42,23 @@ app.post('/api/webhook/telegram', async (req, res) => {
   } catch (err) {
     console.error('Telegram webhook error:', err);
     res.sendStatus(200); // always return 200 so Telegram doesn't retry
+  }
+});
+
+// ============================================================
+// Universal App webhook
+// ============================================================
+app.post('/api/webhook/universal', async (req, res) => {
+  try {
+    await mongoose.connection.asPromise(); // ensure DB is connected
+    const userId = req.query.userId;
+    if (userId) {
+      await handleUniversalWebhook(req.body, userId);
+    }
+    res.sendStatus(200);
+  } catch (err) {
+    console.error('Universal webhook error:', err);
+    res.sendStatus(200); // always return 200 so Universal Bridge doesn't retry
   }
 });
 

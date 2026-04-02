@@ -20,7 +20,8 @@ export interface WaterSettings {
   notificationsEnabled: boolean;
   telegramChatId: string | null;
   phoneNumber: string | null;
-  notificationPreference: 'browser' | 'telegram' | 'twilio' | 'none';
+  universalAppUserId: string | null;
+  notificationPreference: 'browser' | 'telegram' | 'twilio' | 'universal' | 'none';
 }
 
 export interface WaterState {

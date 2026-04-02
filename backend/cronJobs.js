@@ -140,6 +140,50 @@ export async function handleTelegramWebhook(update) {
 }
 
 // ============================================================
+// handleUniversalWebhook  — called by POST /api/webhook/universal
+// Processes incoming webhook from Universal Bridge
+// ============================================================
+export async function handleUniversalWebhook(body, userId) {
+  const { action, data } = body;
+  if (!action || !action.startsWith('drink_')) return;
+
+  const amount = parseInt(action.split('_')[1], 10);
+  if (isNaN(amount) || amount <= 0) return;
+
+  try {
+    const user = await User.findById(userId);
+    if (!user || user.notificationPreference !== 'universal') return;
+
+    const today = getLocalToday();
+    const logIndex = user.logs.findIndex(l => l.date === today);
+
+    if (logIndex >= 0) {
+      user.logs[logIndex].logged += amount;
+      user.logs[logIndex].entries.push({
+        id: `univ_${Date.now()}`,
+        amount,
+        timestamp: new Date().toISOString()
+      });
+    } else {
+      user.logs.push({
+        date: today,
+        logged: amount,
+        entries: [{
+          id: `univ_${Date.now()}`,
+          amount,
+          timestamp: new Date().toISOString()
+        }]
+      });
+    }
+
+    await user.save();
+    console.log(`Universal push logged ${amount}ml for user ${user.name}`);
+  } catch (err) {
+    console.error('Error logging water via Universal:', err);
+  }
+}
+
+// ============================================================
 // Helper: convert "HH:MM" to minutes since midnight
 // ============================================================
 function timeToMinutes(t) {
@@ -187,6 +231,41 @@ async function sendNotification(user, msg, includeButtons = false) {
       return true;
     }
     console.log(`[SIMULATED SMS to ${user.phoneNumber || user.name}] ${msg}`);
+  } else if (user.notificationPreference === 'universal') {
+    if (user.universalAppUserId && process.env.UNIVERSAL_BRIDGE_API_KEY) {
+      const backendUrl = process.env.BACKEND_URL || 'https://aerohydro.onrender.com';
+      const webhookUrl = `${backendUrl}/api/webhook/universal?userId=${user._id.toString()}`;
+      
+      const schema = [];
+      if (includeButtons) {
+        schema.push({ type: 'display_text', label: msg });
+        schema.push({ type: 'button', label: '🥤 100ml', action: 'drink_100', webhookUrl });
+        schema.push({ type: 'button', label: '🥛 250ml', action: 'drink_250', webhookUrl });
+        schema.push({ type: 'button', label: '🍶 500ml', action: 'drink_500', webhookUrl });
+      } else {
+        schema.push({ type: 'display_text', label: msg });
+      }
+
+      try {
+        await fetch('https://universal-bridge.onrender.com/api/notify', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': process.env.UNIVERSAL_BRIDGE_API_KEY
+          },
+          body: JSON.stringify({
+            targetUserId: user.universalAppUserId,
+            title: includeButtons ? '💧 AeroHydro Reminder' : 'AeroHydro Alert',
+            body: includeButtons ? 'Time to drink water!' : msg,
+            interactiveSchema: schema
+          })
+        });
+        return true;
+      } catch (err) {
+        console.error('Universal push error:', err);
+      }
+    }
+    console.log(`[SIMULATED UNIVERSAL push to ${user.name}] ${msg}`);
   }
   return false;
 }

@@ -25,12 +25,14 @@ export default function Settings() {
   const [intervalInput, setIntervalInput] = useState(String(settings.reminderInterval));
   const [cupInput, setCupInput] = useState('');
   const [phoneInput, setPhoneInput] = useState(settings.phoneNumber || '');
+  const [universalAppIdInput, setUniversalAppIdInput] = useState(settings.universalAppUserId || '');
 
   useEffect(() => {
     setGoalInput(String(settings.dailyGoal));
     setIntervalInput(String(settings.reminderInterval));
     setPhoneInput(settings.phoneNumber || '');
-  }, [settings.dailyGoal, settings.reminderInterval, settings.phoneNumber]);
+    setUniversalAppIdInput(settings.universalAppUserId || '');
+  }, [settings.dailyGoal, settings.reminderInterval, settings.phoneNumber, settings.universalAppUserId]);
 
   const handleGoalBlur = () => {
     const val = parseInt(goalInput, 10);
@@ -64,6 +66,7 @@ export default function Settings() {
       dailyGoal: dailyGoal > 0 ? dailyGoal : settings.dailyGoal,
       reminderInterval: reminderInterval > 0 ? reminderInterval : settings.reminderInterval,
       phoneNumber: phoneInput || settings.phoneNumber,
+      universalAppUserId: universalAppIdInput || settings.universalAppUserId,
     });
     
     toast.success('Settings saved successfully!');
@@ -197,9 +200,9 @@ export default function Settings() {
               </div>
               <Select
                 value={settings.notificationPreference}
-                onValueChange={(v: 'none' | 'browser' | 'telegram' | 'twilio') => {
-                  // Auto-enable notifications for telegram/twilio, disable for 'none'
-                  const autoEnabled = v === 'telegram' || v === 'twilio';
+                onValueChange={(v: 'none' | 'browser' | 'telegram' | 'twilio' | 'universal') => {
+                  // Auto-enable notifications for telegram/twilio/universal, disable for 'none'
+                  const autoEnabled = v === 'telegram' || v === 'twilio' || v === 'universal';
                   updateSettings({ notificationPreference: v, notificationsEnabled: v === 'none' ? false : (autoEnabled ? true : settings.notificationsEnabled) });
                 }}
               >
@@ -211,6 +214,7 @@ export default function Settings() {
                   <SelectItem value="browser">Browser Popups</SelectItem>
                   <SelectItem value="telegram">Telegram Bot</SelectItem>
                   <SelectItem value="twilio">SMS Text (Twilio)</SelectItem>
+                  <SelectItem value="universal">Universal App</SelectItem>
                 </SelectContent>
               </Select>
 
@@ -260,6 +264,21 @@ export default function Settings() {
                   >
                     Link Telegram Bot
                   </Button>
+                </div>
+              )}
+
+              {settings.notificationPreference === 'universal' && (
+                <div className="mt-2 space-y-2 p-3 bg-primary/5 rounded-lg border border-primary/20">
+                  <Label className="text-xs">Universal App User ID</Label>
+                  <p className="text-[10px] text-muted-foreground">Find this ID inside your Universal App.</p>
+                  <Input 
+                    type="text"
+                    placeholder="Enter User ID from Universal App" 
+                    value={universalAppIdInput}
+                    onChange={(e) => setUniversalAppIdInput(e.target.value)}
+                    onBlur={() => updateSettings({ universalAppUserId: universalAppIdInput })}
+                    className="rounded-xl border-secondary"
+                  />
                 </div>
               )}
             </div>
