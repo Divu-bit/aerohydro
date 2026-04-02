@@ -12,6 +12,7 @@ const DEFAULT_SETTINGS: WaterSettings = {
   notificationsEnabled: false,
   telegramChatId: null,
   phoneNumber: null,
+  universalAppUserId: null,
   notificationPreference: 'browser'
 };
 
@@ -89,6 +90,7 @@ export function WaterProvider({ children }: { children: React.ReactNode }) {
         notificationPreference: profile.notificationPreference || 'browser',
         telegramChatId: profile.telegramChatId || null,
         phoneNumber: profile.phoneNumber || null,
+        universalAppUserId: profile.universalAppUserId || null,
       });
 
       // Reconstruct history dictionary from logs array
