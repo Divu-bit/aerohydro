@@ -282,7 +282,7 @@ async function sendNotification(user, msg, includeButtons = false) {
 export async function processReminders() {
   const users = await User.find({
     notificationsEnabled: true,
-    notificationPreference: { $in: ['telegram', 'twilio'] }
+    notificationPreference: { $in: ['telegram', 'twilio', 'universal'] }
   });
 
   const today = getLocalToday();
