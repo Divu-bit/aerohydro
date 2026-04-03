@@ -69,7 +69,7 @@ app.listen(PORT, async () => {
   console.log(`Server running on port ${PORT}`);
 
   try {
-    await mongoose.connect(process.env.MONGO_URI || 'mongodb+srv://deewakarsngh2004_db_user:Spider%403506@cluster0.5y6720u.mongodb.net/aerohydro');
+    await mongoose.connect(process.env.MONGODB_URI || process.env.MONGO_URI);
     console.log('Connected to MongoDB');
   } catch (err) {
     console.error('MongoDB connection error:', err);

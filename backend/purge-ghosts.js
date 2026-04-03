@@ -4,7 +4,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 async function purge() {
-  await mongoose.connect(process.env.MONGO_URI || 'mongodb+srv://deewakarsngh2004_db_user:Spider%403506@cluster0.5y6720u.mongodb.net/aerohydro');
+  await mongoose.connect(process.env.MONGODB_URI || process.env.MONGO_URI);
   
   const result = await User.updateMany(
     { telegramChatId: { $ne: null }, notificationPreference: { $ne: 'telegram' } },
